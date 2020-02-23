@@ -845,6 +845,7 @@ static void __add_vars_sdb(RCore *core, RAnalFunction *fcn) {
 		sdb_querys (core->sdb, NULL, 0, query);
 		free (query);
 	}
+	r_anal_fcn_vars_cache_fini (&cache);
 }
 
 static bool cmd_anal_aaft(RCore *core) {
@@ -2814,7 +2815,7 @@ static void __core_cmd_anal_fcn_allstats(RCore *core, const char *input) {
 	Sdb *d = sdb_new0 ();
 	ut64 oseek = core->offset;
 	bool isJson = strchr (input, 'j') != NULL;
-	
+
 	char *inp = r_str_newf ("*%s", input);
 	r_list_foreach (core->anal->fcns, iter, fcn) {
 		r_core_seek (core, fcn->addr, true);
@@ -4358,7 +4359,6 @@ void cmd_anal_reg(RCore *core, const char *str) {
 }
 
 static ut64 initializeEsil(RCore *core) {
-	const char *name = r_reg_get_name (core->anal->reg, R_REG_NAME_PC);
 	int romem = r_config_get_i (core->config, "esil.romem");
 	int stats = r_config_get_i (core->config, "esil.stats");
 	int iotrap = r_config_get_i (core->config, "esil.iotrap");
@@ -4406,7 +4406,6 @@ static ut64 initializeEsil(RCore *core) {
 	} else {
 		addr = core->offset;
 	}
-	r_reg_setv (core->anal->reg, name, addr);
 	// set memory read only
 	return addr;
 }
@@ -4419,16 +4418,14 @@ R_API int r_core_esil_step(RCore *core, ut64 until_addr, const char *until_expr,
 	RAnalOp op = {0};
 	RAnalEsil *esil = core->anal->esil;
 	const char *name = r_reg_get_name (core->anal->reg, R_REG_NAME_PC);
+	ut64 addr;
 	bool breakoninvalid = r_config_get_i (core->config, "esil.breakoninvalid");
 	int esiltimeout = r_config_get_i (core->config, "esil.timeout");
 	ut64 startTime;
-	if (!esil) {
-		initializeEsil (core);
-	}
+
 	if (esiltimeout > 0) {
 		startTime = r_sys_now ();
 	}
-	ut64 addr = r_reg_getv (core->anal->reg, name);
 	r_cons_break_push (NULL, NULL);
 repeat:
 	if (r_cons_is_breaked ()) {
