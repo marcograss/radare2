@@ -230,8 +230,8 @@ R_API int r_core_bin_set_cur(RCore *core, RBinFile *binfile) {
 	return true;
 }
 
-R_API int r_core_bin_refresh_strings(RCore *r) {
-	return r_bin_reset_strings (r->bin)? true: false;
+R_API bool r_core_bin_refresh_strings(RCore *r) {
+	return r_bin_reset_strings (r->bin);
 }
 
 static void _print_strings(RCore *r, RList *list, int mode, int va) {
@@ -2539,6 +2539,7 @@ static int bin_sections(RCore *r, int mode, ut64 laddr, int va, ut64 at, const c
 		int cols = r_cons_get_size (NULL);
 		RList *list = r_list_newf ((RListFree) r_listinfo_free);
 		if (!list) {
+			free (hashtypes);
 			return false;
 		}
 		RBinSection *s;

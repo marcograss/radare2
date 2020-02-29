@@ -1349,6 +1349,10 @@ static int var_cmd(RCore *core, const char *str) {
 		r_anal_var_list_show (core->anal, fcn, core->offset, 0, NULL);
 		break;
 	case '-': // "afv[bsr]-"
+		if (!fcn) {
+			eprintf ("Cannot find function\n");
+			return false;
+		}
 		if (str[2] == '*') {
 			r_anal_var_delete_all (core->anal, fcn->addr, type);
 		} else {
@@ -3445,7 +3449,7 @@ static int cmd_anal_fcn(RCore *core, const char *input) {
 		case 'r': {	// "afcr"
 			int i;
 			RStrBuf *json_buf = r_strbuf_new ("{");
-			bool json = input[3] == 'j'? true: false;
+			bool json = input[3] == 'j';
 
 			char *cmd = r_str_newf ("cc.%s.ret", fcn->cc);
 			const char *regname = sdb_const_get (core->anal->sdb_cc, cmd, 0);
