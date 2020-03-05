@@ -816,8 +816,9 @@ static void cmd_open_map(RCore *core, const char *input) {
 		SdbListIter *iter;
 		RIOMap *map;
 		ls_foreach_prev (core->io->maps, iter, map) {
-			char temp[4];
-			RListInfo *info = r_listinfo_new (map->name, map->itv, map->itv, map->perm, sdb_itoa (map->fd, temp, 10));
+			char temp[32];
+			snprintf (temp, sizeof (temp), "%d", map->fd);
+			RListInfo *info = r_listinfo_new (map->name, map->itv, map->itv, map->perm, temp);
 			if (!info) {
 				break;
 			}
@@ -1117,9 +1118,9 @@ R_API void r_core_file_reopen_debug(RCore *core, const char *args) {
 	char *newfile = r_str_newf ("dbg://%s %s", escaped_path, args);
 	desc->uri = newfile;
 	desc->referer = NULL;
+	r_core_file_reopen (core, newfile, 0, 2);
 	r_config_set_i (core->config, "asm.bits", bits);
 	r_config_set_i (core->config, "cfg.debug", true);
-	r_core_file_reopen (core, newfile, 0, 2);
 	if (r_config_get_i (core->config, "dbg.rebase")) {
 		__rebase_everything (core, old_sections, old_base);
 	}
