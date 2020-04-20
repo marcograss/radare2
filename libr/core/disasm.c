@@ -974,30 +974,8 @@ static char *get_op_ireg (void *user, ut64 addr) {
 	return res;
 }
 
-static int get_ptr_at(void *user, RAnalFunction *fcn, RAnalVar *var, ut64 addr) {
-	RCore *core = (RCore *)user;
-	const char *var_access = sdb_fmt ("var.0x%"PFMT64x ".%d.%d.access",
-			fcn->addr, 1, var->delta);
-	char *vars = sdb_get (core->anal->sdb_fcns, var_access, NULL);
-	const ut64 offset = addr - fcn->addr;
-	if (vars) {
-		char *next = NULL, *ptr = vars;
-		sdb_anext (vars, &next);
-		while (ptr) {
-			ut64 off = r_num_math (NULL, ptr);
-			if (offset == off) {
-				int ret = atoi (strchr (ptr, '.') + 1);
-				free (vars);
-				return ret;
-			}
-			if (!next) {
-				break;
-			}
-			ptr = sdb_anext (next, &next);
-		}
-	}
-	free (vars);
-	return INT_MAX;
+static st64 get_ptr_at(void *user, RAnalFunction *fcn, st64 delta, ut64 addr) {
+	return r_anal_function_get_var_stackptr_at (fcn, delta, addr);
 }
 
 static void ds_build_op_str(RDisasmState *ds, bool print_color) {
@@ -1032,7 +1010,6 @@ static void ds_build_op_str(RDisasmState *ds, bool print_color) {
 	if (ds->varsub && ds->opstr) {
 		ut64 at = ds->vat;
 		RAnalFunction *f = fcnIn (ds, at, R_ANAL_FCN_TYPE_NULL);
-		core->parser->varlist = r_anal_var_list_dynamic;
 		core->parser->get_op_ireg = get_op_ireg;
 		core->parser->get_ptr_at = get_ptr_at;
 		r_parse_varsub (core->parser, f, at, ds->analop.size,
@@ -4113,11 +4090,11 @@ static void ds_print_ptr(RDisasmState *ds, int len, int idx) {
 			} else if (refaddr > 10) {
 				if ((st64)refaddr < 0) {
 					// resolve local var if possible
-					RAnalVar *v = r_anal_var_get (core->anal, ds->at, 'v', 1, (int)refaddr);
+					RAnalFunction *fcn = r_anal_get_function_at (core->anal, ds->at);
+					RAnalVar *v = fcn ? r_anal_function_get_var (fcn, 'v', (int)refaddr) : NULL;
 					ds_begin_comment (ds);
 					if (v) {
 						ds_comment (ds, true, "; var %s", v->name);
-						r_anal_var_free (v);
 					} else {
 						ds_comment (ds, true, "; var %d", -(int)refaddr);
 					}
@@ -6014,7 +5991,6 @@ R_API int r_core_print_disasm_json(RCore *core, ut64 addr, ut8 *buf, int nb_byte
 		// f = r_anal_get_fcn_in (core->anal, at,
 		f = fcnIn (ds, at, R_ANAL_FCN_TYPE_FCN | R_ANAL_FCN_TYPE_SYM | R_ANAL_FCN_TYPE_LOC);
 		if (ds->varsub && f) {
-			core->parser->varlist = r_anal_var_list_dynamic;
 			int ba_len = r_strbuf_length (&asmop.buf_asm) + 128;
 			char *ba = malloc (ba_len);
 			if (ba) {
@@ -6587,13 +6563,13 @@ toro:
 		i += ret;
 	}
 	if (nb_opcodes > 0 && j < nb_opcodes) {
-		r_core_seek (core, core->offset + i, 1);
+		r_core_seek (core, core->offset + i, true);
 		i = 0;
 		goto toro;
 	}
 	r_config_set_i (core->config, "asm.marks", asmmarks);
 	r_meta_item_free (meta);
 	r_cons_break_pop ();
-	r_core_seek (core, old_offset, 1);
+	r_core_seek (core, old_offset, true);
 	return err;
 }
